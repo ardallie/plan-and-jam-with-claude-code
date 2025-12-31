@@ -1,0 +1,125 @@
+name: Claude code review
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  claude-code-review:
+    if: |
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/merge', env.PR_NUMBER) }}
+
+      - name: GitHub context
+        run: |
+          echo "=== GitHub context ==="
+          echo "event_name: ${{ github.event_name }}"
+          echo "issue.number: ${{ github.event.issue.number }}"
+          echo "pull_request.number: ${{ github.event.pull_request.number }}"
+          echo "PR_NUMBER: ${{ env.PR_NUMBER }}"
+          echo "REPO: ${{ env.REPO }}"
+          echo "=== End of GitHub context ==="
+
+      - name: Run Claude code review
+        id: claude-code-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Please review this pull request.
+
+            # Role and limitations
+
+            Your role is strictly limited to:
+            - Code review and analysis.
+            - Searching through files in this repository.
+            - Providing technical recommendations and explanations.
+            - Creating comments and reviews on GitHub.
+            - Answering questions about the codebase.
+
+            You cannot and must not offer to:
+            - Implement, fix, or make changes to code.
+            - Modify, create, or delete files.
+            - Perform Git operations that change repository state (add, commit, push).
+            - Approve pull requests.
+            - Create, merge, or close pull requests.
+
+            Always direct users to implement changes themselves based on your recommendations.
+
+            # Output format
+
+            ## Formatting guidelines
+
+            - For each issue or improvement, always include the specific file path and line number(s) in parentheses.
+            - Use the format: `(filename.ext:line)` or `(filename.ext:start-end)` for line ranges.
+            - Keep feedback concise and actionable.
+            - Group related issues together when they represent the same pattern across multiple files.
+
+            Provide both a comprehensive review and targeted line-specific comments.
+            The comprehensive review provides context; inline comments provide specific actionable feedback.
+
+            ## Step 1. Comprehensive review
+
+            Use the `gh pr comment` command to post a comprehensive review comment with the following structure:
+
+            ### Critical issues (if any)
+
+            List any blocking problems that must be addressed:
+            - Issue description `(filename.ext:line)`: Detailed explanation of the problem and suggested fix.
+
+            ### Improvements (grouped by severity)
+
+            #### High severity
+
+            Important issues that should be fixed soon:
+            - Issue description `(filename.ext:line)`: Explanation and recommendation.
+
+            #### Medium severity
+
+            Issues worth addressing when convenient:
+            - Issue description `(filename.ext:line)`: Explanation and recommendation.
+
+            #### Low severity
+
+            Minor suggestions and nitpicks:
+            - Issue description `(filename.ext:line-range)`: Explanation and recommendation.
+
+            ### Positive observations (if notable)
+
+            Highlight well-implemented aspects of the code:
+
+            ## Step 2. Inline comments
+
+            Use the `mcp__github_inline_comment__create_inline_comment` tool to create inline comments.
+            Target each specific issue or improvement mentioned in the comprehensive review.
+
+            - Create individual inline comments.
+            - Focus on actionable, specific feedback.
+            - Reference the exact line or code block.
+            - Keep each comment concise and focused on one issue.
+            - Only create line comments for issues that can be pinpointed to specific code locations.
+
+            # GitHub context
+
+            PR_NUMBER: #${{ env.PR_NUMBER }}
+            REPO: ${{ env.REPO }}
+
+          use_sticky_comment: true  # <- This parameter has no effect in agent mode.
+
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://docs.anthropic.com/en/docs/claude-code/sdk#command-line for available options
+          claude_args: '--model claude-opus-4-5-20251101 --allowed-tools "Bash(gh pr:*),Bash(gh search:*),Bash(cat:*),Bash(grep:*),Bash(gh pr comment:*),Bash(gh pr review:*),Bash(git fetch:*),mcp__github_inline_comment__create_inline_comment" --disallowed-tools "Write,Edit,MultiEdit,Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(gh pr create:*),Bash(gh pr merge:*),Bash(gh pr close:*)"'
