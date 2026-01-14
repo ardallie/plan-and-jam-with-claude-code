@@ -16,8 +16,6 @@ Commands live in `.claude/commands/`. Most commands execute directly. Commands t
 
 **/plan-create** — creates a GitHub issue with the plan as description (uses subagent)
 
-**/plan-prompt** — saves a revised prompt as a comment to the issue
-
 **/plan-resume** — loads plan and handoffs from an issue to continue work
 
 **/plan-validate** — validates a plan for clarity, accuracy and completeness before implementation

@@ -6,13 +6,13 @@
 
 ## Context
 
-This creates a GitHub issue with the plan as the issue description. The issue becomes the single source of truth for subsequent sessions. After creating the issue, run `/plan-prompt` with the issue number to post the revised prompt as the first comment.
+This creates a GitHub issue with the plan as the issue description. 
+The issue becomes the single source of truth for subsequent sessions. 
 
 ## Task
 
 1. Spawn a `plan-create` subagent using the Task tool with `subagent_type: "plan-create"`
 2. Return the issue URL from the subagent's response
-3. Remind the user to run `/plan-prompt <issue>` to save the revised prompt
 
 ## Requirements
 
