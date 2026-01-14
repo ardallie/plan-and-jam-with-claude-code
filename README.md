@@ -16,12 +16,11 @@ Design the implementation and publish the plan.
 1. Enter plan mode to explore the codebase and design the approach
 2. Claude writes the plan to `~/.claude/plans/`
 3. `/plan-create` — publishes the plan to a new GitHub issue
-4. `/plan-prompt <issue>` — posts the revised prompt as the first comment
-5. Keep the session open; validation resumes in a new session for fresh perspective
+4. Keep the session open; validation resumes in a new session for fresh perspective
 
 **Issue structure:**
 - Description: Plan (living document, updated via `/plan-update`)
-- First comment: Revised prompt (static snapshot of refined requirements)
+- Comments: Handoffs documenting implementation progress
 
 ## Session 2: Validate
 
