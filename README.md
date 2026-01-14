@@ -46,7 +46,7 @@ Respond to PR feedback after review.
 
 1. `/plan-resume <issue>` — loads context from the plan
 2. Read the PR description (manual) — recall scope and decisions
-3. `/pr-fetch-all-comments` — fetches review comments including inline feedback
+3. Fetch the review comments including inline feedback
 4. List issues to address from the review (manual)
 5. Implement fixes
 6. `/pr-response` — posts a summary of changes made in response to review
