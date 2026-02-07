@@ -7,7 +7,7 @@
 
 ## Context
 
-The handoff responds to the plan. The plan defines "what we will do"; the handoff documents "what we actually did". Future sessions use `/plan-resume` to load this context.
+The handoff responds to the plan. The plan defines "what we will do"; the handoff documents "what we actually did". Future sessions use `/plan-read` to load this context.
 
 ## Task
 

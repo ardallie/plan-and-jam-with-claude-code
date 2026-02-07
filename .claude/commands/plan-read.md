@@ -2,8 +2,8 @@
 
 ## Usage
 
-- `/plan-resume` - Uses the issue number from conversation context
-- `/plan-resume <issue>` - Loads context from the specified issue (e.g., `85`)
+- `/plan-read` - Uses the issue number from conversation context
+- `/plan-read <issue>` - Loads context from the specified issue (e.g., `85`)
 
 ## Context
 
