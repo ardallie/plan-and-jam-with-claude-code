@@ -45,18 +45,16 @@ Output the structured report between `---` separators. This is the last text you
 ```
 ---
 
+# Instructions
+
+1. Enter plan mode and address the findings below
+2. Resolve each item and update the plan
+3. Exit plan mode
+4. Run `/plan-update` to push the revised plan to the GitHub issue
+
+Do not proceed with implementation yet.
+
 # Plan validation report
-
-## Instruction
-
-Enter plan mode and address the findings below. Update the plan to
-resolve each item. Once done, exit plan mode and run `/plan-update` to
-push the revised plan to the GitHub issue.
-
-Do not proceed with implementation until the plan is updated.
-
-If the report identifies no issues requiring plan changes, you may skip
-the update and proceed directly with implementation.
 
 ## Findings
 
@@ -69,10 +67,22 @@ the update and proceed directly with implementation.
 ---
 ```
 
-After outputting the report, copy the full report (between and including the `---` separators) to the system clipboard. Check the platform using `uname -s` and use the appropriate command silently via Bash:
-- **Windows/MINGW/MSYS**: `clip`
-- **Darwin**: `pbcopy`
-- **Linux**: `xclip -selection clipboard`, falling back to `xsel -b` if `xclip` is unavailable
+After outputting the report, copy everything between and including the `---` separators to the system clipboard. 
+
+Detect the platform and run the appropriate command silently via Bash:
+
+```bash
+OS=$(uname -s)
+case "$OS" in
+  MINGW*|MSYS*|CYGWIN*) cat <<'EOF' | clip ;;
+  Darwin)                cat <<'EOF' | pbcopy ;;
+  Linux)                 cat <<'EOF' | xclip -selection clipboard 2>/dev/null || cat <<'EOF' | xsel -b ;;
+esac
+<paste the report text here>
+EOF
+```
+
+Replace `<paste the report text here>` with the full report text. The heredoc preserves formatting and special characters.
 
 ## Constraints
 
