@@ -18,11 +18,15 @@ Commands live in `.claude/commands/`. Most commands execute directly. Commands t
 
 **/plan-read** — loads plan and handoffs from an issue to continue work
 
-**/plan-validate** — loads the plan (chains `/plan-read`), validates against the codebase, interviews the engineer if needed, and outputs a structured report for the planning agent
+**/plan-validate** — loads the plan (invokes `/plan-read`), validates against the codebase, interviews the engineer if needed, and outputs a structured report for the planning agent
 
 **/plan-update** — updates a GitHub issue with revised plan content from the conversation
 
 **/plan-handoff** — posts a technical handoff comment synthesising implementation from the conversation
+
+## Code review
+
+**/team-code-review** — spawns a review team (three system-assigned reviewers plus a sceptic) to analyse changes before PR creation
 
 ## Pull requests
 

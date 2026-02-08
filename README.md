@@ -48,7 +48,13 @@ Execute the plan and document the work.
 1. `/plan-read <issue>` — loads the plan and any handoff comments from prior sessions
 2. Implement the plan
 3. `/plan-handoff` — documents what was done as an issue comment, capturing decisions, gotchas, and verification steps not obvious from the diff
-4. `/pr-create` — creates a pull request from the current branch
+4. `/team-code-review` — runs a pre-PR team review with four specialised reviewers
+5. Address critical and high-severity findings before proceeding
+6. `/pr-create` — creates a pull request from the current branch
+
+## Team review
+
+Pre-PR code review intended for non-trivial changes. The report is copied to the clipboard for reference. See step 4 of the Implement section above.
 
 ## Review
 
