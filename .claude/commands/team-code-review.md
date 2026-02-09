@@ -40,13 +40,13 @@ Everything after the first whitespace-delimited token is passed to reviewers as 
 Gather:
 
 - Changed file list: `git diff <default>...<branch> --name-only` (or `gh pr diff <number> --name-only` for PRs)
-- Commit messages: `git log --oneline -10 <default>..<branch>` (or `gh pr view <number> --json commits` for PRs)
+- Commit messages: `git log -10 <default>..<branch>` (or `gh pr view <number> --json commits` for PRs)
 
 If the diff is empty, report "No changes detected" and stop.
 
 Read all changed files in full so reviewers have complete file context beyond the diff hunks. If more than 20 files changed, skip full file reads and provide the diff only — note this for reviewers.
 
-If the diff exceeds 2000 lines, keep the first 2000 lines and discard the rest. Note the omission and list truncated or excluded files.
+If the diff exceeds 5000 lines, keep the first 5000 lines and discard the rest. Note the omission and list truncated or excluded files.
 
 ### Phase 3 — Create review team
 
@@ -54,7 +54,7 @@ Create the team with a unique name by appending a short random suffix (e.g., `co
 
 Three reviewers receive specialisations chosen by the system based on the code under review. The fourth is the **sceptic** — it challenges assumptions, questions necessity, identifies what the other reviewers missed, and suggests simpler alternatives.
 
-Each reviewer outputs findings as a bulleted list. Each finding includes: severity (Critical/High/Medium/Low), file path, line reference where applicable, description, and suggestion.
+Reviewers report findings with severity (Critical/High/Moderate/Minor), file and line reference, description, and suggested fix. They must also explicitly note areas they reviewed and found correct, stating what they checked and why it needs no changes.
 
 ### Phase 4 — Collect reviews
 
@@ -62,7 +62,14 @@ Wait for all four reviewers to respond via the team messaging system. If a revie
 
 ### Phase 5 — Generate report
 
-Consolidate findings into a structured report between `---` separators:
+Consolidate all reviewer findings into a single severity-grouped report. Apply these rules:
+
+- Deduplicate: if multiple reviewers flagged the same issue, merge into one finding. When merging, use the highest severity.
+- No per-reviewer attribution. The developer does not need to know which agent found what.
+- Omit sections that have no findings, including "Approved without changes".
+- No summary section, no recommendation line.
+
+Output the report between `---` separators:
 
 ```
 ---
@@ -74,26 +81,32 @@ Consolidate findings into a structured report between `---` separators:
 Source: [description]
 Files changed: [count]
 
-## [Reviewer 1 — system-assigned focus]
+## Reviewers
 
-[findings or "No issues identified"]
+1. [name] — [role description]
+2. [name] — [role description]
+3. [name] — [role description]
+4. [name] — [role description]
 
-## [Reviewer 2 — system-assigned focus]
+### Critical [omit if empty]
 
-[findings or "No issues identified"]
+[consolidated findings — each with file:line reference, description, recommended fix]
 
-## [Reviewer 3 — system-assigned focus]
+### High [omit if empty]
 
-[findings or "No issues identified"]
+[findings]
 
-## Sceptic
+### Moderate [omit if empty]
 
-[critical perspective or "No concerns"]
+[findings]
 
-## Summary
+### Minor [omit if empty]
 
-Total: [count by severity]
-Recommendation: [Proceed to PR / Address findings first]
+[findings]
+
+### Approved without changes [omit if empty]
+
+[areas/aspects reviewed by one or more reviewers and found correct — aggregate all positive assessments]
 
 ---
 ```
