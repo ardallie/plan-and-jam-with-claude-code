@@ -11,7 +11,7 @@ Use this in session 2. A fresh session provides perspective the planning session
 
 ## Task
 
-Execute four phases in order.
+Execute these phases in order.
 
 ### Phase 1 — Load the plan
 
@@ -45,15 +45,6 @@ Output the structured report between `---` separators. This is the last text you
 ```
 ---
 
-# Instructions
-
-1. Enter plan mode and address the findings below
-2. Resolve each item and update the plan
-3. Exit plan mode
-4. Run `/plan-update` to push the revised plan to the GitHub issue
-
-Do not proceed with implementation yet.
-
 # Plan validation report
 
 ## Findings
@@ -64,10 +55,19 @@ Do not proceed with implementation yet.
 
 [User responses from interview, if any. Omit section if none needed.]
 
+# Next steps for the planning agent
+
+1. Enter plan mode, address the findings, and update the plan
+2. Once approved, run `/plan-update` to push the revised plan to the GitHub issue
+
+Do not proceed with implementation. Do not ask the user whether to proceed — just run `/plan-update`.
+
 ---
 ```
 
-After outputting the report, copy everything between and including the `---` separators to the system clipboard. 
+### Clipboard copy
+
+After outputting the report, copy everything between and including the `---` separators to the system clipboard.
 
 Detect the platform and run the appropriate command silently via Bash:
 
