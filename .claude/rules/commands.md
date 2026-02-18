@@ -24,6 +24,10 @@ Commands live in `.claude/commands/`. Most commands execute directly. Commands t
 
 **/plan-handoff** — posts a technical handoff comment synthesising implementation from the conversation
 
+## Pre-plan analysis
+
+**/team-pre-planner** — spawns an analysis team (three system-assigned analysts plus a sceptic) to explore the codebase and analyse an intention before plan creation
+
 ## Code review
 
 **/team-code-review** — spawns a review team (three system-assigned reviewers plus a sceptic) to analyse changes before PR creation
