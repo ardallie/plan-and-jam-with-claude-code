@@ -44,7 +44,7 @@ Gather:
 
 If the diff is empty, report "No changes detected" and stop.
 
-Read all changed files in full so reviewers have complete file context beyond the diff hunks. If more than 20 files changed, skip full file reads and provide the diff only — note this for reviewers.
+Read all changed files in full so reviewers have complete file context beyond the diff hunks. If more than 50 files changed, skip full file reads and provide the diff only — note this for reviewers.
 
 If the diff exceeds 5000 lines, keep the first 5000 lines and discard the rest. Note the omission and list truncated or excluded files.
 
@@ -111,28 +111,31 @@ Files changed: [count]
 ---
 ```
 
-Copy the report to the system clipboard silently. Detect the platform and run the appropriate command via Bash:
+Copy the report to the system clipboard silently. Write the report to a temp file and pipe it into the platform-specific command via Bash:
 
 ```bash
+REPORT_FILE=$(mktemp)
+cat > "$REPORT_FILE" << 'REPORTEOF'
+<paste the report text here>
+REPORTEOF
 OS=$(uname -s)
 case "$OS" in
-  MINGW*|MSYS*|CYGWIN*) cat <<'EOF' | clip ;;
-  Darwin)                cat <<'EOF' | pbcopy ;;
-  Linux)                 cat <<'EOF' | xclip -selection clipboard 2>/dev/null || cat <<'EOF' | xsel -b ;;
+  MINGW*|MSYS*|CYGWIN*) cat "$REPORT_FILE" | clip ;;
+  Darwin)                cat "$REPORT_FILE" | pbcopy ;;
+  Linux)                 cat "$REPORT_FILE" | xclip -selection clipboard 2>/dev/null || cat "$REPORT_FILE" | xsel -b ;;
 esac
-<paste the report text here>
-EOF
+rm -f "$REPORT_FILE"
 ```
 
-Replace `<paste the report text here>` with the full report text. The heredoc preserves formatting and special characters.
+Replace `<paste the report text here>` with the full report text.
 
-### Phase 6 — Cleanup
+### Phase 6 — Clean up
 
 Send `shutdown_request` to all reviewers. Wait briefly for acknowledgements, then proceed to `TeamDelete` — do not block indefinitely on unresponsive reviewers.
 
 ## Constraints
 
-- Do not ask follow-up questions after the report ("Should we proceed?", "What would you like to do next?")
+- Do not ask follow-up questions after the report
 - The report is the absolute last text output
 - The clipboard command runs silently — no output after the report
 
