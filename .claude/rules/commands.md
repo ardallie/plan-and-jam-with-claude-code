@@ -32,6 +32,10 @@ Commands live in `.claude/commands/`. Most commands execute directly. Commands t
 
 **/agent-code-review** — spawns a review team (three system-assigned reviewers plus a sceptic) to analyse changes before PR creation
 
+## Revision
+
+**/agent-revisor** — spawns two agents (unit test revisor and documentation revisor) to revise tests and docs for the current branch
+
 ## Pull requests
 
 **/pr-create** — creates a GitHub pull request from current branch commits
