@@ -2,8 +2,8 @@
 
 ## Usage
 
-- `/team-pre-planner` — uses the most recent actionable user message as the brief
-- `/team-pre-planner <file1> <file2> ...` — reads files as the brief
+- `/agent-pre-planner` — uses the most recent actionable user message as the brief
+- `/agent-pre-planner <file1> <file2> ...` — reads files as the brief
 - Text after the last valid file path is passed to all analysts as additional instructions
 
 ## Context
@@ -12,7 +12,7 @@ Use this before entering plan mode. It spawns an analysis team to explore the co
 
 ## Task
 
-Seven phases executed in order.
+Eight phases executed in order.
 
 ### Phase 1 — Extract brief
 
@@ -47,12 +47,13 @@ Three analysts receive specialisations chosen by the system based on the brief. 
 Each analyst must:
 
 1. Explore the codebase independently to verify claims and discover context beyond the parent's package
-2. Report findings using exactly these categories: Insight, Correction, Risk, Opportunity, Question — do not use other categories such as Clarity, Accuracy, Completeness, or Feasibility
+2. Report findings using exactly these categories: Insight, Correction, Risk, Opportunity, Question, Confirmed — do not use other categories such as Clarity, Accuracy, Completeness, or Feasibility
 3. Resolve ambiguities using codebase evidence where possible — only escalate to Question when the codebase cannot answer it
-4. Reference specific files and line numbers
-5. Distinguish facts (verified in codebase) from assessments (analytical judgement)
-6. Explicitly note aspects of the brief that are well-founded, stating what they verified and why it needs no changes
-7. List any files read beyond the context package, so they can be included in the report's "Context consumed" section
+4. Describe constraints and decision points, not implementation algorithms. Write "the plan must define how to handle X given Y" rather than "use algorithm Z to do X." Leave design space for the planner.
+5. Reference specific files and line numbers
+6. Distinguish facts (verified in codebase) from assessments (analytical judgement)
+7. Report aspects of the brief that are well-founded as Confirmed findings (category prefix `V`), stating what was verified, the evidence (file:line), and why it needs no changes
+8. List any files read beyond the context package, so they can be included in the report's "Context consumed" section
 
 ### Phase 4 — Collect analyses
 
@@ -60,7 +61,7 @@ Wait for all four analysts to respond via the team messaging system. If an analy
 
 ### Phase 5 — Generate report
 
-The report has two primary content sections. The findings list consolidates every discrete correction, risk, question, insight, and opportunity produced by the analysts. The enhanced brief is the original user input regenerated at the same level of detail, with all findings applied.
+The report has two primary content sections. The findings list consolidates every discrete correction, risk, question, insight, opportunity, and confirmation produced by the analysts. The enhanced brief is the original user input regenerated at the same level of detail, with all findings applied.
 
 Build the findings list first, then use it as the basis for the enhanced brief. In the report, the enhanced brief appears first — it is the primary content for the planning agent. The findings list follows as supporting detail.
 
@@ -73,7 +74,10 @@ Consolidation rules:
 - Deduplicate findings across analysts (prefer the most specific formulation)
 - No per-analyst attribution
 - No summary section, no recommendation line
-- Each finding has a category-prefixed identifier (C1, C2 for Correction; R1, R2 for Risk; Q1, Q2 for Question; I1, I2 for Insight; O1, O2 for Opportunity), description, and file:line references where applicable
+- Each finding has a category-prefixed identifier (C1 [high], C2 [low] for Correction; R1 [high], R2 [low] for Risk; Q1 [blocking], Q2 [deferrable] for Question; I1 [high], I2 [low] for Insight; O1 [high], O2 [low] for Opportunity; V1, V2 for Confirmed), description, and file:line references where applicable
+- Each finding carries a severity tag: `[high]` (materially affects the plan — wrong assumption, architectural risk, blocking dependency) or `[low]` (observational, informational, nice-to-know)
+- Each question carries a priority tag instead of a severity tag: `[blocking]` (must be resolved before planning) or `[deferrable]` (can be resolved during or after planning)
+- Confirmed findings carry no severity tag
 - Omit categories that have no findings
 
 **Enhanced brief**
@@ -86,14 +90,14 @@ Walk through the original brief's structure and content. Reconstruct it element 
 - Omit context-gathering directives that the analysis has fulfilled — instructions to fetch or read artefacts (e.g., "run /plan-read X", "inspect touched files") have been addressed during analysis; exclude them. Preserve directives that express constraints, goals, or design questions for the planner.
 - Where the original content is accurate and well-founded, preserve it unchanged
 - Reproduce diagnostic artefacts verbatim — error messages, stack traces, query expressions, code snippets, API requests, and response codes are primary evidence; include them in full, not paraphrased or referenced. If an artefact is misleading, correct it in place and cite the evidence.
-- Where a finding corrects a factual error or invalid assumption, replace the incorrect content with the correction and cite the evidence (file:line). Reference the finding number.
+- Where a finding corrects a factual error or invalid assumption, replace the incorrect content with the correction and cite the evidence (file:line). Reference the finding number in bold (e.g., **see C2**) so corrections are visually distinct from other inline references.
 - Where a finding identifies a risk, note it inline at the relevant point in the narrative
 - Where a finding adds architectural insight, fold it into the narrative where it is most relevant
 - Where a finding presents an opportunity or alternative, include it alongside the original approach
 
 The result reads as if the user had written the brief with full knowledge of the codebase. Incorrect preliminary information is corrected in place. The planning agent can consume the enhanced brief directly as primary context.
 
-**Open questions** remain as a distinct subsection — they require user input and cannot be resolved into the narrative.
+**Open questions** remain as a distinct subsection — they require user input and cannot be resolved into the narrative. Group questions by priority: blocking first, then deferrable.
 
 Output the report:
 
@@ -111,35 +115,40 @@ Output the report:
 
 [The original user input regenerated at the same level of detail, with findings applied
 throughout. Corrections replace incorrect content in place with file:line evidence and
-reference the finding number (e.g., "see Finding C2"). Risks, insights, and opportunities
+reference the finding number in bold (e.g., **see C2**). Risks, insights, and opportunities
 are woven into the narrative at the points they apply. Accurate content is preserved unchanged.
 The result is the user's brief as it would read with full knowledge of the codebase.]
 
 ### Open questions [omit if empty]
 
-[Questions that require user input before planning -- one per line. Full context in § Question below.]
+[Questions that require user input before planning -- grouped by priority (blocking first,
+then deferrable). One per line. Full context in § Question below.]
 
 ## Findings
 
 ### Correction [omit if empty]
 
-[Numbered findings -- each with description, what was wrong, what is correct, and file:line evidence]
+[Numbered findings -- each with severity tag, description, what was wrong, what is correct, and file:line evidence]
 
 ### Risk [omit if empty]
 
-[Numbered findings -- each with description and file:line references]
+[Numbered findings -- each with severity tag, description, and file:line references]
 
 ### Question [omit if empty]
 
-[Numbered findings -- ambiguities the codebase could not resolve]
+[Numbered findings -- each with priority tag, ambiguities the codebase could not resolve]
 
 ### Insight [omit if empty]
 
-[Numbered findings -- each with description and file:line references]
+[Numbered findings -- each with severity tag, description, and file:line references]
 
 ### Opportunity [omit if empty]
 
-[Numbered findings -- each with description and file:line references]
+[Numbered findings -- each with severity tag, description, and file:line references]
+
+### Confirmed [omit if empty]
+
+[Numbered findings -- each with what was verified and file:line evidence]
 
 ## Context consumed
 
@@ -148,42 +157,58 @@ parent context package, then analyst-discovered files. Omit files that were
 listed in the brief but not found or not readable -- note these separately.]
 ```
 
-### Phase 6 — Save and copy report
+### Phase 6 — Save report
 
 #### Save report
 
 Write the report to `.claude/reports/pre-plan-{date}-{id}.md`, where `{date}` is the current date in `YYYY-MM-DD` format and `{id}` is the same random suffix used for the team name (e.g., `pre-plan-2026-02-16-a3f9.md`).
 Create the `.claude/reports/` directory if it does not exist.
 
-#### Copy report
-
-Copy the report to the system clipboard silently. Write the report to a temp file and pipe it into the platform-specific command via Bash:
-
-```bash
-REPORT_FILE=$(mktemp)
-cat > "$REPORT_FILE" << 'REPORTEOF'
-<paste the report text here>
-REPORTEOF
-OS=$(uname -s)
-case "$OS" in
-  MINGW*|MSYS*|CYGWIN*) cat "$REPORT_FILE" | clip ;;
-  Darwin)                cat "$REPORT_FILE" | pbcopy ;;
-  Linux)                 cat "$REPORT_FILE" | xclip -selection clipboard 2>/dev/null || cat "$REPORT_FILE" | xsel -b ;;
-esac
-rm -f "$REPORT_FILE"
-```
-
-Replace `<paste the report text here>` with the full report text.
-
 ### Phase 7 — Clean up
 
 Send `shutdown_request` to all analysts. Wait briefly for acknowledgements, then proceed to `TeamDelete` — do not block indefinitely on unresponsive analysts.
 
-## Constraints
+### Phase 8 — Interview
 
-- Do not ask follow-up questions after the report
-- The report is the absolute last text output
-- The clipboard command runs silently — no output after the report
+If the report has no `### Open questions` subsection or it is empty, skip this phase. The command ends after Phase 7.
+
+**Present questions:**
+
+Output open questions as a numbered list, grouped by priority. Blocking questions first, then deferrable. Include instructions:
+
+```
+The analysis produced [N] open questions.
+
+Blocking (resolve before planning):
+1. [question text]
+2. [question text]
+
+Deferrable (can be resolved later):
+3. [question text]
+
+Answer by number, "skip [N]" to skip one, or "skip all" to end.
+Unanswered questions remain in the report for the planner.
+```
+
+**Collect answers:**
+
+Wait for user response. The user may:
+
+- Answer all questions in a single message (by number or inline)
+- Answer some and skip others
+- Reply "skip all" or "done" to end the interview
+- Ask for clarification — respond using codebase knowledge from the analysis, then re-present that question
+
+**Update the report** — for each answered question:
+
+- **Enhanced brief**: weave the answer into the narrative at the relevant point, written as a statement of fact or design decision. Reference the finding number in bold (e.g., **see Q2**).
+- **Open questions subsection**: remove the answered question. If all resolved, remove the entire subsection.
+- **Question finding**: prepend `[Resolved]` to the description and append the user's answer on a new line prefixed with `Answer:`. Do not delete the finding — it serves as audit trail.
+- Skipped questions: no changes.
+
+**Save updated report:**
+
+Overwrite the same file path used in Phase 6. Output the updated report in full. This is the final output of the command.
 
 ## Error handling
 
