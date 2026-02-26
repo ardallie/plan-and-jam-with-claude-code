@@ -30,7 +30,7 @@ Commands live in `.claude/commands/`. Most commands execute directly. Commands t
 
 ## Code review
 
-**/team-code-review** — spawns a review team (three system-assigned reviewers plus a sceptic) to analyse changes before PR creation
+**/agent-code-review** — spawns a review team (three system-assigned reviewers plus a sceptic) to analyse changes before PR creation
 
 ## Pull requests
 
