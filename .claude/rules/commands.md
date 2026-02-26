@@ -26,7 +26,7 @@ Commands live in `.claude/commands/`. Most commands execute directly. Commands t
 
 ## Pre-plan analysis
 
-**/team-pre-planner** — spawns an analysis team (three system-assigned analysts plus a sceptic) to explore the codebase and analyse an intention before plan creation
+**/agent-pre-planner** — runs a multi-analyst analysis (three system-assigned analysts plus a sceptic) to explore the codebase and analyse an intention before plan creation
 
 ## Code review
 
