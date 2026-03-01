@@ -32,9 +32,9 @@ Perform targeted exploration driven by the brief. Build a context package:
 - Related patterns (existing implementations similar to what the brief describes)
 - Dependency map (modules adjacent to or affected by the proposed change)
 
-Read all files explicitly referenced in the brief — reference lists, documentation lists, file paths mentioned inline, slash commands, and context files in the target repository. These have no cap. Cap additional exploratory reads (files discovered by the parent but not mentioned in the brief) at 40; if the cap is reached, note this in the Context consumed section and list the areas skipped. Prioritise entry points and interfaces.
+Read all files explicitly referenced in the brief — reference lists, documentation lists, file paths mentioned inline, slash commands, and context files in the target repository. These have no cap. Cap additional exploratory reads (files discovered by the parent but not mentioned in the brief) at 40; if the cap is reached, note this in the Context files section and list the areas skipped. Prioritise entry points and interfaces.
 
-Record which files were read — the report includes this list.
+Record which files were read — the report includes them in the Context files section as a single numbered list.
 
 ### Phase 3 — Create analysis team
 
@@ -53,7 +53,7 @@ Each analyst must:
 5. Reference specific files and line numbers
 6. Distinguish facts (verified in codebase) from assessments (analytical judgement)
 7. Report aspects of the brief that are well-founded as Confirmed findings (category prefix `V`), stating what was verified, the evidence (file:line), and why it needs no changes
-8. List any files read beyond the context package, so they can be included in the report's "Context consumed" section
+8. List any files read beyond the context package, so they can be merged into the report's context file list
 
 ### Phase 4 — Collect analyses
 
@@ -99,6 +99,10 @@ The result reads as if the user had written the brief with full knowledge of the
 
 **Open questions** remain as a distinct subsection — they require user input and cannot be resolved into the narrative. Group questions by priority: blocking first, then deferrable.
 
+If the scope is large enough to warrant multiple implementation stages, include a workload split as the final part of the enhanced brief. Evaluate scope by considering: the number of distinct subsystems affected, the depth of the dependency chain between tasks, and whether intermediate validation gates exist.
+
+When splitting is warranted, list each plan with a short title, its constituent tasks, dependencies on prior plans, and a validation gate (how to verify that plan's work before proceeding). Order plans by dependency — earlier plans must not depend on later ones. When the scope is narrow, state that a single plan is sufficient and skip the split.
+
 Output the report:
 
 ```
@@ -123,6 +127,11 @@ The result is the user's brief as it would read with full knowledge of the codeb
 
 [Questions that require user input before planning -- grouped by priority (blocking first,
 then deferrable). One per line. Full context in § Question below.]
+
+### Workload split [omit if single plan suffices]
+
+[Scope assessment: brief justification for splitting or not. When splitting,
+list each plan with title, tasks, dependency on prior plans, and validation gate.]
 
 ## Findings
 
@@ -150,11 +159,12 @@ then deferrable). One per line. Full context in § Question below.]
 
 [Numbered findings -- each with what was verified and file:line evidence]
 
-## Context consumed
+## Context files
 
-[Numbered list of files read during Phase 2 and by analysts. Group by source:
-parent context package, then analyst-discovered files. Omit files that were
-listed in the brief but not found or not readable -- note these separately.]
+[Single deduplicated numbered list of all files read during analysis -- by the
+parent agent in Phase 2 and by analysts. No grouping by source, no analyst
+attribution. Omit files listed in the brief but not found or not readable --
+note these separately.]
 ```
 
 ### Phase 6 — Save report
@@ -172,32 +182,15 @@ Send `shutdown_request` to all analysts. Wait briefly for acknowledgements, then
 
 If the report has no `### Open questions` subsection or it is empty, skip this phase. The command ends after Phase 7.
 
-**Present questions:**
+**Run the interview tool:**
 
-Output open questions as a numbered list, grouped by priority. Blocking questions first, then deferrable. Include instructions:
+Use the `AskUserQuestion` tool to present open questions interactively. Group questions by priority — blocking questions first, then deferrable. For each question, provide 2-4 answer options that help the user make an informed choice rather than composing an answer from scratch. Draw options from codebase evidence, trade-offs, or reasonable alternatives as appropriate.
 
-```
-The analysis produced [N] open questions.
-
-Blocking (resolve before planning):
-1. [question text]
-2. [question text]
-
-Deferrable (can be resolved later):
-3. [question text]
-
-Answer by number, "skip [N]" to skip one, or "skip all" to end.
-Unanswered questions remain in the report for the planner.
-```
+If there are more questions than the tool supports per call, batch them across multiple calls — blocking questions in the first batch.
 
 **Collect answers:**
 
-Wait for user response. The user may:
-
-- Answer all questions in a single message (by number or inline)
-- Answer some and skip others
-- Reply "skip all" or "done" to end the interview
-- Ask for clarification — respond using codebase knowledge from the analysis, then re-present that question
+The tool returns the user's selections. The user may also provide free-text via the built-in "Other" option. If the user declines to answer a question, leave it unresolved. If all questions are unresolved, end the interview.
 
 **Update the report** — for each answered question:
 
