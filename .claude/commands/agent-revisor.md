@@ -15,7 +15,19 @@ Use after implementation is complete and before PR creation. Spawns a two-agent 
 
 Five phases executed in order.
 
-### Phase 1 — Parse arguments and determine scope
+### Phase 1 — Determine scope and parse arguments
+
+**Git scope** — detect the default branch:
+
+```bash
+gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'
+```
+
+Check the current branch (`git branch --show-current`). If the current branch is the default branch, report: "Cannot revise — currently on the default branch." and stop.
+
+Run `git diff --name-only <default>...HEAD` for the touched file list.
+
+**Validation**: If diff is empty, report "No changes detected on the current branch." and stop.
 
 **Argument parsing** (three paths):
 
@@ -31,23 +43,11 @@ After extraction, filter to `.md`, `.mdx`, `.txt`, `.rst`, and `.adoc` files. Lo
 
 **Merge documentation file list**: Combine files from three sources (arguments, manifest, CLAUDE.md discovery). Deduplicate. This merged list is the documentation-revisor's scope. Arguments are optional supplements — the manifest and CLAUDE.md discovery provide the baseline.
 
-**Git scope**: Detect default branch:
+### Phase 2 — Assemble context
 
-```bash
-gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'
-```
+Assemble the following for the agent prompts:
 
-Check the current branch (`git branch --show-current`). If the current branch is the default branch, report: "Cannot revise — currently on the default branch." and stop.
-
-Run `git diff --name-only <default>...HEAD` for the touched file list.
-
-**Validation**: If diff is empty, report "No changes detected on the current branch." and stop.
-
-### Phase 2 — Gather context
-
-Build context from the branch diff:
-
-- **Plan summary** — if `/plan-read` was invoked earlier in the conversation, extract the plan title, context section, and key design decisions. Forward as a condensed summary so agents understand the intent behind the changes.
+- **Plan summary** — if `/plan-read` was invoked earlier in the conversation, extract the plan title, context section, and key design decisions as a condensed summary.
 - Touched file list (`git diff --name-only`)
 - Full diff (`git diff <default>...HEAD`)
 - Commit messages (`git log -10 <default>..HEAD --oneline`)
@@ -84,12 +84,26 @@ Build context from the branch diff:
 **documentation-revisor** receives (only if documentation files exist):
 - Documentation file list, touched file list, full diff, commit messages, plan summary (if available), additional instructions (if any)
 - Instructions:
-  1. Read each documentation file and the diff to understand what changed.
-  2. Revise each documentation file to reflect the current codebase: correct file paths, function names, API signatures; add documentation for new features; remove documentation for deleted functionality; update examples.
-  3. Ensure CLAUDE.md files match the current codebase and revise them accordingly.
-  4. Preserve the existing style and structure of each file.
-  5. Do not commit or push code.
-  6. Send a summary to the team lead via `SendMessage`: files revised (path + what changed), files skipped (path + reason).
+  1. **Extract a change manifest from the diff.** Scan the diff for:
+     - Renamed symbols (old name -> new name)
+     - New exports, methods, types, or functions
+     - Removed exports, methods, types, or functions
+     - Changed function signatures or type definitions
+     Record these as a checklist before touching any documentation file.
+  2. **For each documentation file:**
+     a. Read the documentation file.
+     b. Identify the source files this documentation file references or describes — scan for file paths, module names, and symbol references in the text. Read those source files (not just the diff) to understand the current API surface: all methods, types, exports, and patterns.
+     c. **Mechanical pass:**
+        - For each renamed symbol in the change manifest, Grep the documentation file for every occurrence of the old name. Replace all using the Edit tool.
+        - For removed symbols, search and remove references.
+        - For new symbols, identify where they belong in the document structure and add them.
+     d. **Semantic pass:**
+        - Compare every description in the documentation against the current source — implementation patterns, data flow, architecture, file paths, workflow steps, prose descriptions.
+        - Update anything that no longer matches.
+        - The change manifest is a starting checklist, not a ceiling — any inaccurate documentation must be updated regardless of whether it appears in the manifest.
+  3. **Post-edit verification** — after all edits, grep each old/removed symbol name across all documentation files to confirm step 2c caught every occurrence. Fix any remaining references.
+  4. Do not commit or push code.
+  5. Send a summary to the team lead via `SendMessage`: files revised (path + what changed), files skipped (path + reason). Include the change manifest in the summary.
 
 ### Phase 4 — Collect results
 
