@@ -22,6 +22,8 @@ Commands live in `.claude/commands/`. Most commands execute directly. Commands t
 
 **/plan-update** — updates a GitHub issue with revised plan content from the conversation
 
+**/plan-implement** — loads a plan from a GitHub issue and implements it sequentially, one work item at a time
+
 **/plan-handoff** — posts a technical handoff comment synthesising implementation from the conversation
 
 ## Pre-plan analysis

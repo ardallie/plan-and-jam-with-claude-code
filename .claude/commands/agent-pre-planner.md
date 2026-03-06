@@ -101,7 +101,7 @@ The result reads as if the user had written the brief with full knowledge of the
 
 If the scope is large enough to warrant multiple implementation stages, include a workload split as the final part of the enhanced brief. Evaluate scope by considering: the number of distinct subsystems affected, the depth of the dependency chain between tasks, and whether intermediate validation gates exist.
 
-When splitting is warranted, list each plan with a short title, its constituent tasks, dependencies on prior plans, and a validation gate (how to verify that plan's work before proceeding). Order plans by dependency — earlier plans must not depend on later ones. When the scope is narrow, state that a single plan is sufficient and skip the split.
+When splitting is warranted, list each plan with a short title, its constituent tasks, dependencies on prior plans, and a validation gate (how to verify that plan's work before proceeding). Order plans by dependency — earlier plans must not depend on later ones. When the scope is narrow, state that a single plan is sufficient.
 
 Output the report:
 
@@ -128,10 +128,11 @@ The result is the user's brief as it would read with full knowledge of the codeb
 [Questions that require user input before planning -- grouped by priority (blocking first,
 then deferrable). One per line. Full context in § Question below.]
 
-### Workload split [omit if single plan suffices]
+### Workload split
 
 [Scope assessment: brief justification for splitting or not. When splitting,
-list each plan with title, tasks, dependency on prior plans, and validation gate.]
+list each plan with title, tasks, dependency on prior plans, and validation gate.
+When not splitting, state that a single plan is sufficient.]
 
 ## Findings
 
@@ -168,8 +169,6 @@ note these separately.]
 ```
 
 ### Phase 6 — Save report
-
-#### Save report
 
 Write the report to `.claude/reports/pre-plan-{date}-{id}.md`, where `{date}` is the current date in `YYYY-MM-DD` format and `{id}` is the same random suffix used for the team name (e.g., `pre-plan-2026-02-16-a3f9.md`).
 Create the `.claude/reports/` directory if it does not exist.
