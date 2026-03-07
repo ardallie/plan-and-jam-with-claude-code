@@ -26,17 +26,15 @@ Commands live in `.claude/commands/`. Most commands execute directly. Commands t
 
 **/plan-handoff** — posts a technical handoff comment synthesising implementation from the conversation
 
-## Pre-plan analysis
+## Agent commands
 
-**/agent-pre-planner** — runs a multi-analyst analysis (three system-assigned analysts plus a sceptic) to explore the codebase and analyse an intention before plan creation
+**/agent-code-review** — runs a multi-reviewer code review against a branch, PR, commit, or directory; outputs a severity-grouped report
 
-## Code review
+**/agent-plan-validate** — spawns a validation team (two system-assigned validators plus a sceptic) to review a plan against the codebase before implementation
 
-**/agent-code-review** — spawns a review team (three system-assigned reviewers plus a sceptic) to analyse changes before PR creation
+**/agent-pre-planner** — runs a pre-plan analysis: identifies confirmed findings, risks, and open questions before implementation begins
 
-## Revision
-
-**/agent-revisor** — spawns two agents (unit test revisor and documentation revisor) to revise tests and docs for the current branch
+**/agent-revisor** — revises unit tests and documentation on the current branch
 
 ## Pull requests
 
