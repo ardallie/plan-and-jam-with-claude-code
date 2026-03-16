@@ -2,14 +2,13 @@
 
 ## Usage
 
-- `/agent-code-review` -> current branch vs default branch
-- `/agent-code-review <PR_URL>` -> e.g., `https://github.com/owner/repo/pull/263`
-- `/agent-code-review pr <number>` -> PR in current repo
-- `/agent-code-review origin/<branch>` -> remote branch vs default branch
-- `/agent-code-review commit <sha>` -> single commit diff (SHA must be at least 7 characters)
-- `/agent-code-review <branch>` -> local branch vs default branch
-- `/agent-code-review directory <path>` -> all files in the specified directory
-- Text after the scope parameters is passed to all reviewers as additional instructions
+- `/agent-code-review` — current branch vs default branch
+- `/agent-code-review pr <number|URL>` — PR by number (current repo) or full URL
+- `/agent-code-review origin/<branch>` — remote branch vs default branch
+- `/agent-code-review branch <name>` — local branch vs default branch
+- `/agent-code-review commit <sha>` — single commit diff (SHA must be at least 7 characters)
+- `/agent-code-review directory <path>` — all files in the specified directory
+- Text after the scope parameters is passed as additional instructions
 
 ## Context
 
@@ -18,7 +17,7 @@ Best suited to non-trivial changes; trivial fixes do not warrant a full agent re
 
 ## Task
 
-Six phases executed in order.
+Eight phases executed in order.
 
 ### Phase 1 — Resolve scope
 
@@ -31,84 +30,60 @@ gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'
 Parse the first parameter to determine the review source. Evaluate rules in the order listed; first match wins.
 
 - **Empty** — current branch; `git diff <default>...HEAD`
-- **PR URL** — extract owner, repo, and number via regex `https://github.com/([^/]+)/([^/]+)/pull/(\d+)`; fetch with `gh pr diff <number> --repo <owner>/<repo>`
-- **`pr`** — second token is the PR number; fetch with `gh pr diff <number>`
+- **`pr`** — second token is either a PR number or a full URL. If numeric, fetch with `gh pr diff <number>`. If URL, extract owner, repo, and number via regex `https://github.com/([^/]+)/([^/]+)/pull/(\d+)` and fetch with `gh pr diff <number> --repo <owner>/<repo>`.
 - **Starts with `origin/`** — treat as remote ref; run `git fetch origin` then `git diff <default>...<value>`
+- **`branch`** — second token is the local branch name; `git diff <default>...<branch>`
 - **`commit`** — second token is the SHA; `git show <sha>`
-- **Bare SHA** — 7–40 hex characters; `git show <sha>`. Note: a branch name composed entirely of hex characters (e.g. `abc1234`) will be treated as a SHA. Use `git diff` directly in that case.
 - **`directory`** — second token is the directory path; read all files in that directory recursively
-- **Other string** — treat as local branch name, including branches containing `/` (e.g., `feature/login`); `git diff <default>...<branch>`
+- **Other string** — use `AskUserQuestion` to clarify the intended scope. Present the input value and suggest the available keyword forms (`pr`, `branch`, `commit`, `directory`, `origin/`). Proceed based on the user's response.
 
-For `pr`, `commit`, and `directory`, both tokens (keyword and value) are consumed as scope and not forwarded as instructions; everything after the second token is passed as additional instructions. For all other sources, everything after the first token is passed as additional instructions.
+Keyword sources (`pr`, `branch`, `commit`, `directory`) consume two tokens; remaining tokens are additional instructions.
+All other sources consume one token or none; remaining tokens are additional instructions.
 
-Note: `pr`, `commit`, and `directory` are reserved keywords. A branch with one of these names cannot be reviewed using the bare branch form — use `git diff` directly in that case.
+Use the resolved ref for all git commands in subsequent phases (e.g., `origin/feature-branch` for remote branches).
+
+`pr`, `branch`, `commit`, and `directory` are reserved — to review a branch named "commit", use `branch commit`.
 
 ### Phase 2 — Collect metadata
 
-For a **`commit` keyword or bare SHA** source, all diff and file data comes from `git show <sha>`. Skip the branch-based commands below.
+Apply a combined line budget of **15,000 lines** across all source material (diff, file contents, or both).
 
-For a **directory** source, gather all text files in the specified directory (skip binaries). There is no diff — pass the full contents of each file to reviewers. If the directory does not exist, report the error and stop. Apply the same 10,000-line budget to the total file contents: if the total exceeds 10,000 lines, print the warning below, then pause and ask the user whether to continue with the first 10,000 lines or stop. Skip the branch-based commands below.
+**`commit` source** — all diff and file data comes from `git show <sha>`. Count the output lines via `wc -l`. If the total exceeds 15,000 lines, trigger the budget warning. Skip the branch-based commands below.
 
-Warning to print when directory file contents exceed 10,000 lines:
+**`directory` source** — gather all text files in the specified directory (skip binaries). There is no diff — pass the full contents of each file to reviewers. If the directory does not exist, report the error and stop. Count total lines across all gathered files. If the total exceeds 15,000 lines, trigger the budget warning. Skip the branch-based commands below.
 
-```
----
-
-These file contents exceed 10,000 lines. A review of this scope risks missing issues and producing low-quality findings.
-
-Recommendation:
-1. Identify files that can be excluded from the review and narrow the directory path.
-2. Run the review against a specific subdirectory: `/agent-code-review directory <path>`
-
-Continue with the partial review (first 10,000 lines only), or stop here to
-narrow the scope?
-
----
-```
-
-For all other sources, gather:
+**All other sources** — gather:
 
 - Changed file list: `git diff <default>...<branch> --name-only` (or `gh pr diff <number> --name-only` for PRs)
 - Commit messages: `git log -10 <default>..<branch>` (or `gh pr view <number> --json commits` for PRs)
 
 If the diff is empty, report "No changes detected" and stop.
 
-Apply a combined line budget of **10,000 lines** across the diff and full file reads.
+Count diff lines via `wc -l` on the diff output. If the diff alone exceeds 15,000 lines, trigger the budget warning immediately.
 
-Evaluate:
+If the diff fits within budget, estimate total file sizes from `git diff --stat` output. If the estimated diff + file lines ≤ 15,000, read all changed files in full. If the estimated total exceeds 15,000, trigger the budget warning.
 
-- **Diff alone exceeds 10,000 lines** — do not proceed to Phase 3. Print the warning below, then pause and ask the user whether to continue or stop.
-- **Diff fits within budget** — count the total lines across all changed files. If diff + file lines ≤ 10,000, read all files in full. If the combined total exceeds 10,000, skip full file reads and provide the diff only — note this for reviewers, then proceed to Phase 3.
+**Budget warning** — use `AskUserQuestion` before proceeding. Present the line count and offer:
 
-Warning to print when the diff alone exceeds 10,000 lines:
+1. Continue with the first 15,000 lines (truncated review)
+2. Stop and narrow the scope
 
-```
----
+Include source-specific advice: for directory sources, suggest narrowing the directory path; for commit sources, suggest reviewing a smaller commit; for diff sources, suggest isolating generated files in a separate commit or reviewing a single commit.
 
-This diff exceeds 10,000 lines. A review of this scope risks missing issues and producing low-quality findings.
-
-Recommendation:
-1. Identify files that can be excluded from the review (e.g. generated files) and isolate them in a separate commit.
-2. Prepare a single commit containing only the essential code changes.
-3. Run the review against that commit: `/agent-code-review commit <sha>`
-
-Continue with the partial review (first 10,000 lines only), or stop here to
-reorganise your commits?
-
----
-```
-
-If the user chooses to **stop**, end the task without proceeding to Phase 3.
-
-If the user chooses to **continue**, keep the first 10,000 lines, discard the rest, and note the truncation for reviewers before proceeding.
+If the user chooses to stop, end the task. If the user chooses to continue, keep the first 15,000 lines, discard the rest, and note the truncation for reviewers.
 
 ### Phase 3 — Create review team
 
-Create the team with a unique name by appending a short random suffix (e.g., `code-review-a3f9`) via `TeamCreate`. Spawn four reviewers via the Task tool (`subagent_type: "general-purpose"`, `model: "sonnet"`), passing the team name. Each reviewer receives the available source material (diff or file contents), file list, commit context where applicable, and any additional instructions.
+Generate a random 8-digit hex suffix (e.g., `a3f9b2c1`) using a shell command: `openssl rand -hex 4 2>/dev/null || date +%s | sha256sum | head -c 8`. Create the team via `TeamCreate` with name `agent-code-review-{suffix}`. Spawn four reviewers via the Task tool (`subagent_type: "general-purpose"`, `model: "sonnet"`), passing the team name. Each reviewer receives the available source material (diff or file contents), file list, commit context where applicable, and any additional instructions.
 
 Three reviewers receive specialisations chosen by the system based on the code under review. The fourth is the **sceptic** — it challenges assumptions, questions necessity, identifies what the other reviewers missed, and suggests simpler alternatives.
 
-Reviewers report findings with severity (Critical/High/Moderate/Minor), file and line reference, description, and suggested fix. They must also explicitly note areas they reviewed and found correct, stating what they checked and why it needs no changes.
+Reviewers report findings with severity (Critical/High/Moderate/Minor), file and line reference, description, and suggested fix. They must also explicitly note areas they reviewed and found correct, stating what they checked and why it needs no changes. Prefix findings that require user input with `[Question]` within their severity group. These drive the interview phase.
+
+Tag as `[Question]` when the finding depends on information not present in the codebase — business requirements, deployment constraints, or intentional design trade-offs. Do not tag findings with clear, codebase-derivable fixes.
+
+- `[Question]` — "The error handler silently swallows exceptions. Is this intentional for this endpoint?" (requires domain knowledge unavailable in the codebase)
+- Not `[Question]` — "The error handler silently swallows exceptions. Add logging and re-throw." (actionable without user input)
 
 ### Phase 4 — Collect reviews
 
@@ -119,21 +94,24 @@ Wait for all four reviewers to respond via the team messaging system. If a revie
 Consolidate all reviewer findings into a single severity-grouped report. Apply these rules:
 
 - Deduplicate: if multiple reviewers flagged the same issue, merge into one finding. When merging, use the highest severity.
+- Preserve `[Question]` prefixes during deduplication and consolidation. A merged finding retains the prefix if any constituent finding had it.
 - No per-reviewer attribution. The developer does not need to know which agent found what.
 - Omit sections that have no findings, including "Approved without changes".
-- No summary section, no recommendation line.
+- No findings summary or recommendation line.
 
-Output the report between `---` separators:
+Output the report:
 
 ```
----
-
 # Agent code review report
 
-## Review scope
+## Summary
 
-Source: [description]
-Files changed: [count]
+Title: {concise title suitable for GitHub}
+Source: [current branch | pr #N | branch name | commit sha | directory path]
+
+[1-2 paragraphs: what the changes do, which areas of the codebase they affect, and key design decisions]
+
+**Tip:** start a new conversation before acting on this report.
 
 ## Reviewers
 
@@ -164,45 +142,63 @@ Files changed: [count]
 
 [areas/aspects reviewed by one or more reviewers and found correct — aggregate all positive assessments]
 
----
+## Clarifications [omit if no interview]
+
+[User responses from interview]
 ```
 
-Copy the report to the system clipboard silently. Write the report to a temp file and pipe it into the platform-specific command via Bash:
+### Phase 6 — Save report
 
-```bash
-REPORT_FILE=$(mktemp)
-cat > "$REPORT_FILE" << 'REPORTEOF'
-<paste the report text here>
-REPORTEOF
-OS=$(uname -s)
-case "$OS" in
-  MINGW*|MSYS*|CYGWIN*) clip < "$REPORT_FILE" ;;
-  Darwin)                pbcopy < "$REPORT_FILE" ;;
-  Linux)                 xclip -selection clipboard < "$REPORT_FILE" 2>/dev/null || xsel -b < "$REPORT_FILE" ;;
-esac
-rm -f "$REPORT_FILE"
-```
+Write the report to `.claude/reports/{yyyyMMdd}-{HHmm}-agent-code-review-{suffix}.md`,
+where `{yyyyMMdd}` and `{HHmm}` are local machine time (`date +%Y%m%d` and `date +%H%M`)
+and `{suffix}` is the same hex suffix used for the team name.
+Create the `.claude/reports/` directory if it does not exist.
 
-Replace `<paste the report text here>` with the full report text.
+If the report contains `[Question]`-prefixed findings, proceed to the interview phase after clean up.
+Otherwise the command ends after clean up.
 
-### Phase 6 — Clean up
+### Phase 7 — Clean up
+
+The team is deleted before the interview phase. The interview uses `AskUserQuestion` on the parent agent and does not require the team to be active.
 
 Send `shutdown_request` to all reviewers. Wait briefly for acknowledgements, then proceed to `TeamDelete` — do not block indefinitely on unresponsive reviewers.
 
+### Phase 8 — Interview
+
+This phase collects user answers and overwrites the saved report file with updated content. The file save is mandatory — without it, the report lacks interview answers.
+
+**Run the interview tool:**
+
+Use the `AskUserQuestion` tool to present questions interactively. Group questions by priority — blocking questions first, then deferrable. For each question, provide 2-4 answer options that help the user make an informed choice rather than composing an answer from scratch. Draw options from codebase evidence, trade-offs, or reasonable alternatives as appropriate.
+
+If there are more questions than the tool supports per call, batch them across multiple calls — blocking questions in the first batch.
+
+**Collect answers:**
+
+The tool returns the user's selections. The user may also provide free-text via the built-in "Other" option. If the user declines to answer a question, leave it unresolved. If all questions are unresolved, end the interview.
+
+**Update the report** — for each answered question:
+
+- **Findings**: prepend `[Resolved]` to the description and append the user's answer on a new line prefixed with `Answer:`. Do not delete the finding — it serves as audit trail.
+- **Clarifications section**: add the answered question and the user's response. If the section did not exist, create it.
+- Skipped questions: no changes.
+
+**Save updated report:**
+
+Overwrite the same file path used in the Save report phase. Output the updated report in full.
+
 ## Constraints
 
-- Do not ask follow-up questions after the report
-- The report is the final output — nothing follows, including clipboard operation feedback
+- Do not proceed to implementation unless the user explicitly approves — the review is advisory only
+- The command ends after the interview save (or after cleanup if no interview). The conversation may continue with other work.
+- After interview, the saved report file must be overwritten with updated content
 
 ## Error handling
 
-- If the PR URL format is invalid, report the expected format and stop
-- If the PR is not found, report the error and stop
-- If `pr`, `commit`, or `directory` is given without a second token, report the expected syntax and stop
-- If the branch is not found, report the error and stop
-- If the commit SHA is not found, report the error and stop
-- If the directory does not exist, report the error and stop
-- If the directory is empty, report "No files found" and stop
+- If a keyword (`pr`, `branch`, `commit`, `directory`) is given without a second token, report the expected syntax and stop
+- If the `pr` second token is not a valid number or URL, report the expected format and stop
+- If the PR, branch, or commit is not found, report the error and stop
+- If the directory does not exist or is empty, report the error and stop
 - If the diff is empty, report "No changes detected" and stop
-- If `git fetch` fails, report the error and stop
+- If `gh` or `git` commands fail, report the error and stop
 - If there are permission issues, report the error and stop

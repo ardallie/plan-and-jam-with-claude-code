@@ -3,12 +3,15 @@
 ## Usage
 
 - `/agent-pre-planner` — uses the most recent actionable user message as the brief
+- `/agent-pre-planner <issue>` — uses the specified issue number (e.g., `85`)
 - `/agent-pre-planner <file1> <file2> ...` — reads files as the brief
-- Text after the last valid file path is passed to all analysts as additional instructions
+- Text after the last valid file path or issue number is passed to all analysts as additional instructions
 
 ## Context
 
-Use this before entering plan mode. It spawns an analysis team to explore the codebase from multiple angles, surface risks, correct assumptions, and identify opportunities. The output is a two-part report: an enhanced brief followed by a consolidated findings list.
+Use this before entering plan mode. 
+It spawns an analysis team to explore the codebase from multiple angles, surface risks, correct assumptions, and identify opportunities. 
+The output is a two-part report: an enhanced brief followed by a consolidated findings list.
 
 ## Task
 
@@ -19,6 +22,19 @@ Eight phases executed in order.
 Parse the arguments:
 
 - **File paths provided** — test each whitespace-delimited token as a file path in order. The first token that does not resolve to a readable file ends the file list — that token and everything after it is passed to all analysts as additional instructions. Read each valid file and concatenate their contents as the brief.
+- **Issue number** — if the first token is not a valid file path but is numeric, treat it
+  as a GitHub issue number. Fetch via:
+
+  ```bash
+  gh issue view <number> --json title,body,state,createdAt,comments
+  ```
+
+  Parse JSON output: present title, body, and comments chronologically with author and
+  timestamp. The issue title and body form the brief. Comments provide additional context
+  (handoff notes, revised decisions, discussion). Everything after the issue number token
+  is passed as additional instructions.
+
+  Only one issue number is supported per invocation. Subsequent numeric tokens are passed as additional instructions, not as issue numbers. To analyse multiple issues, run the command separately for each.
 - **No arguments** — identify the most recent user message in conversation context that describes an intention, suggestion, technical query, or implementation plan. Quote it verbatim as the brief.
 
 If no brief is found (no arguments and no actionable message in context), report this and stop. If a file path resolves but is not readable, report the error and stop.
@@ -38,7 +54,7 @@ Record which files were read — the report includes them in the Context files s
 
 ### Phase 3 — Create analysis team
 
-Create the team via `TeamCreate` with a unique name by appending a short random suffix (e.g., `planner-a3f9`). Spawn four analysts via the Task tool (`subagent_type: "general-purpose"`, `model: "opus"`), passing the team name. Analysts use `opus` rather than `sonnet` because pre-plan analysis involves open-ended codebase reasoning and hypothesis evaluation — tasks that benefit from a more capable model than code review.
+Generate a random 8-digit hex suffix (e.g., `a3f9b2c1`) using a shell command: `openssl rand -hex 4 2>/dev/null || date +%s | sha256sum | head -c 8`. Create the team via `TeamCreate` with name `agent-pre-planner-{suffix}`. Spawn four analysts via the Task tool (`subagent_type: "general-purpose"`, `model: "opus"`), passing the team name. Analysts use `opus` rather than `sonnet` because pre-plan analysis involves open-ended codebase reasoning and hypothesis evaluation — tasks that benefit from a more capable model than code review.
 
 Each analyst receives: the brief (verbatim), the context package, their specialisation, any additional instructions from the user, and the analyst instructions below.
 
@@ -73,7 +89,7 @@ Consolidation rules:
 
 - Deduplicate findings across analysts (prefer the most specific formulation)
 - No per-analyst attribution
-- No summary section, no recommendation line
+- No findings summary or recommendation line
 - Each finding has a category-prefixed identifier (C1 [high], C2 [low] for Correction; R1 [high], R2 [low] for Risk; Q1 [blocking], Q2 [deferrable] for Question; I1 [high], I2 [low] for Insight; O1 [high], O2 [low] for Opportunity; V1, V2 for Confirmed), description, and file:line references where applicable
 - Each finding carries a severity tag: `[high]` (materially affects the plan — wrong assumption, architectural risk, blocking dependency) or `[low]` (observational, informational, nice-to-know)
 - Each question carries a priority tag instead of a severity tag: `[blocking]` (must be resolved before planning) or `[deferrable]` (can be resolved during or after planning)
@@ -108,12 +124,21 @@ Output the report:
 ```
 # Pre-plan analysis
 
+## Summary
+
+Title: {concise title suitable for GitHub}
+Source: [conversation context | file paths | issue #N]
+
+[1-2 paragraphs: what the brief is about, which areas of the codebase are affected, and key constraints or goals]
+
+**Tip:** start a new conversation before acting on this report.
+
 ## Analysts
 
-1. [name] -- [specialisation]
-2. [name] -- [specialisation]
-3. [name] -- [specialisation]
-4. [name] -- [sceptic description]
+1. [name] — [specialisation]
+2. [name] — [specialisation]
+3. [name] — [specialisation]
+4. [name] — [sceptic description]
 
 ## Enhanced brief
 
@@ -125,7 +150,7 @@ The result is the user's brief as it would read with full knowledge of the codeb
 
 ### Open questions [omit if empty]
 
-[Questions that require user input before planning -- grouped by priority (blocking first,
+[Questions that require user input before planning — grouped by priority (blocking first,
 then deferrable). One per line. Full context in § Question below.]
 
 ### Workload split
@@ -138,40 +163,42 @@ When not splitting, state that a single plan is sufficient.]
 
 ### Correction [omit if empty]
 
-[Numbered findings -- each with severity tag, description, what was wrong, what is correct, and file:line evidence]
+[Numbered findings — each with severity tag, description, what was wrong, what is correct, and file:line evidence]
 
 ### Risk [omit if empty]
 
-[Numbered findings -- each with severity tag, description, and file:line references]
+[Numbered findings — each with severity tag, description, and file:line references]
 
 ### Question [omit if empty]
 
-[Numbered findings -- each with priority tag, ambiguities the codebase could not resolve]
+[Numbered findings — each with priority tag, ambiguities the codebase could not resolve]
 
 ### Insight [omit if empty]
 
-[Numbered findings -- each with severity tag, description, and file:line references]
+[Numbered findings — each with severity tag, description, and file:line references]
 
 ### Opportunity [omit if empty]
 
-[Numbered findings -- each with severity tag, description, and file:line references]
+[Numbered findings — each with severity tag, description, and file:line references]
 
 ### Confirmed [omit if empty]
 
-[Numbered findings -- each with what was verified and file:line evidence]
+[Numbered findings — each with what was verified and file:line evidence]
 
 ## Context files
 
-[Single deduplicated numbered list of all files read during analysis -- by the
-parent agent in Phase 2 and by analysts. No grouping by source, no analyst
-attribution. Omit files listed in the brief but not found or not readable --
+[Single deduplicated numbered list of all files read during analysis — by the
+parent agent during exploration and by analysts. No grouping by source, no analyst
+attribution. Omit files listed in the brief but not found or not readable —
 note these separately.]
 ```
 
 ### Phase 6 — Save report
 
-Write the report to `.claude/reports/pre-plan-{date}-{id}.md`, where `{date}` is the current date in `YYYY-MM-DD` format and `{id}` is the same random suffix used for the team name (e.g., `pre-plan-2026-02-16-a3f9.md`).
+Write the report to `.claude/reports/{yyyyMMdd}-{HHmm}-agent-pre-planner-{suffix}.md`, where `{yyyyMMdd}` and `{HHmm}` are local machine time (`date +%Y%m%d` and `date +%H%M`) and `{suffix}` is the same hex suffix used for the team name (e.g., `20260216-0945-agent-pre-planner-a3f9b2c1.md`).
 Create the `.claude/reports/` directory if it does not exist.
+
+If the report contains an `### Open questions` subsection with questions, proceed to the interview phase after clean up. Otherwise the command ends after clean up.
 
 ### Phase 7 — Clean up
 
@@ -179,7 +206,7 @@ Send `shutdown_request` to all analysts. Wait briefly for acknowledgements, then
 
 ### Phase 8 — Interview
 
-If the report has no `### Open questions` subsection or it is empty, skip this phase. The command ends after Phase 7.
+This phase collects user answers and overwrites the saved report file with updated content. The file save is mandatory — without it, the report lacks interview answers.
 
 **Run the interview tool:**
 
@@ -200,7 +227,12 @@ The tool returns the user's selections. The user may also provide free-text via 
 
 **Save updated report:**
 
-Overwrite the same file path used in Phase 6. Output the updated report in full. This is the final output of the command.
+Overwrite the same file path used in the Save report phase. Output the updated report in full.
+
+## Constraints
+
+- The saved report is the deliverable; the command ends after the final save
+- After interview, the saved report file must be overwritten with updated content
 
 ## Error handling
 
@@ -208,3 +240,5 @@ Overwrite the same file path used in Phase 6. Output the updated report in full.
 - If a file path resolves but is not readable, report the error and stop
 - If the repository is empty or no relevant files are found, report this and stop
 - If an analyst fails or times out, note the missing analyst in the report and proceed with available findings
+- If the issue does not exist, report the error and stop
+- If `gh` commands fail, report the error and stop
