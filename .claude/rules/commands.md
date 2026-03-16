@@ -18,7 +18,7 @@ Commands live in `.claude/commands/`. Most commands execute directly. Commands t
 
 **/plan-read** — loads plan and handoffs from an issue to continue work
 
-**/plan-validate** — loads the plan (invokes `/plan-read`), validates against the codebase, interviews the engineer if needed, and outputs a structured report for the planning agent
+**/plan-validate** — validates the plan against the codebase, interviews the engineer if findings need clarification, and saves a structured report for the planning agent
 
 **/plan-update** — updates a GitHub issue with revised plan content from the conversation
 
@@ -34,7 +34,7 @@ Commands live in `.claude/commands/`. Most commands execute directly. Commands t
 
 **/agent-pre-planner** — runs a pre-plan analysis: identifies confirmed findings, risks, and open questions before implementation begins
 
-**/agent-revisor** — revises unit tests and documentation on the current branch
+**/agent-revisor** — revises unit tests, accessibility, and documentation on the current branch
 
 ## Pull requests
 

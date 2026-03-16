@@ -3,34 +3,39 @@
 ## Usage
 
 - `/agent-plan-validate` — uses issue number from conversation context
-- `/agent-plan-validate <issue>` — validates plan from the specified issue number
-- `/agent-plan-validate <file>` — validates plan from a local file
-- Text after the issue/file argument is passed to all validators as additional instructions
+- `/agent-plan-validate <issue>` — validates the plan from the specified issue number (e.g., `85`)
+- `/agent-plan-validate <file1> <file2> ...` — validates the plan from local files
+- Text after the last valid file path or issue number is passed as additional instructions
 
 ## Context
 
-Use after plan creation and before implementation. Spawns a validation team to review the plan from multiple angles, verify assumptions against the codebase, and surface issues. The output is a structured validation report. For lighter single-agent validation, use `/plan-validate`.
+Use after plan creation and before implementation. 
+Reviews the plan against the codebase to verify assumptions and surface issues that are harder to spot in the planning session.
+Best run in a fresh session — the planning context is not loaded, so gaps and errors become visible. 
+The output is a structured validation report. 
+
+This is an agent team version of `/plan-validate`; it spawns a validation team to review from multiple angles.
 
 ## Task
 
 Eight phases executed in order.
 
-### Phase 1 — Load plan
+### Phase 1 — Load the plan
 
 Parse the arguments:
 
-- **File paths provided** — test each whitespace-delimited token as a file path in order. The first token that does not resolve to a readable file ends the file list — that token and everything after it is passed to all validators as additional instructions. Read each valid file and concatenate their contents as the plan text.
+- **File paths provided** — test each whitespace-delimited token as a file path in order. The first token that does not resolve to a readable file ends the file list — that token and everything after it is passed as additional instructions. Read each valid file and concatenate their contents as the plan text.
 - **Numeric token** — if the first token is not a valid file path but is numeric, treat it as a GitHub issue number. Fetch via:
 
 ```bash
-gh issue view <number> --json body,title --jq '.title + "\n\n" + .body'
+gh issue view <number> --json title,body,state,createdAt,comments
 ```
 
-Everything after the issue number is passed to all validators as additional instructions.
+Parse JSON output: present title, body, and comments chronologically with author and timestamp. Everything after the issue number is passed as additional instructions.
 
-- **No arguments** — look for an issue number in the conversation context (e.g., from a prior `/plan-read`). If found, fetch it using the command above. If not found, report this and stop.
+- **No arguments** — if the plan is already in the conversation (from a prior `/plan-read`), use it. Otherwise look for an issue number in conversation context and fetch it using the command above. If not found, report this and stop.
 
-If a file path resolves but is not readable, report the error and stop. If the fetched plan text is empty, report this and stop.
+If a file path resolves but is not readable, report the error and stop. If the plan text is empty, report this and stop.
 
 Store the plan text for distribution to agents.
 
@@ -49,9 +54,9 @@ Record which files were read — the report includes them in the Context files s
 
 ### Phase 3 — Create validation team
 
-Create the team via `TeamCreate` with a unique name by appending a short random suffix (e.g., `plan-validate-a3f9`).
+Generate a random 8-digit hex suffix (e.g., `a3f9b2c1`) using a shell command: `openssl rand -hex 4 2>/dev/null || date +%s | sha256sum | head -c 8`. Create the team via `TeamCreate` with name `agent-plan-validate-{suffix}`.
 
-Before spawning validators, extract a verification checklist from the plan: every modified type, interface, or function signature, and their consumers identified during Phase 2 exploration.
+Before spawning validators, extract a verification checklist from the plan: every modified type, interface, or function signature, and their consumers identified during codebase exploration.
 
 Spawn three validators (two specialists, one sceptic) via the Task tool (`subagent_type: "general-purpose"`, `model: "sonnet"`), passing the team name. Each validator receives: the plan text (verbatim), the context package, the verification checklist, their role description, any additional instructions from the user, and the validator instructions below.
 
@@ -85,18 +90,24 @@ Wait for all three validators to respond via the team messaging system. If a val
 
 Consolidate all validator findings into a single report. Apply these rules:
 
-- Deduplicate: if multiple validators flagged the same issue, merge into one finding. When merging, use the most critical assessment.
+- Deduplicate: if multiple validators flagged the same issue, merge into one finding. When merging, use the most critical assessment. Preserve `[Question]` prefixes — a merged finding retains the prefix if any constituent finding had it.
 - Cross-reference validator coverage against the verification checklist. List uncovered items in the "Not verified" subsection.
 - No per-validator attribution. The developer does not need to know which agent found what.
 - Omit sections that have no findings, including "Approved without changes".
-- No summary section, no recommendation line.
+- No findings summary or recommendation line.
 
-Output the report between `---` separators:
+Output the report:
 
 ```
----
-
 # Plan validation report
+
+## Instructions
+
+1. Read this report file in full
+2. Enter plan mode, address the findings, and update the plan
+3. Once approved, run `/plan-update` to push the revised plan to the GitHub issue
+
+Do not proceed with implementation until the user explicitly approves.
 
 ## Validators
 
@@ -132,29 +143,24 @@ Output the report between `---` separators:
 
 ## Clarifications [omit if no interview]
 
-[user responses from interview]
+[User responses from interview]
 
 ## Context files
 
 [Single deduplicated numbered list of all files read during validation — by the
-parent agent in Phase 2 and by validators. No grouping by source, no validator
+parent agent during exploration and by validators. No grouping by source, no validator
 attribution. Omit files listed in the plan but not found or not readable —
 note these separately.]
-
-# Next steps for the planning agent
-
-1. Enter plan mode, address the findings, and update the plan
-2. Once approved, run `/plan-update` to push the revised plan to the GitHub issue
-
-Do not proceed with implementation. Do not ask the user whether to proceed — just run `/plan-update`.
-
----
 ```
 
 ### Phase 6 — Save report
 
-Write the report to `.claude/reports/plan-validate-{date}-{id}.md`, where `{date}` is the current date in `YYYY-MM-DD` format and `{id}` is the same random suffix used for the team name (e.g., `plan-validate-2026-03-07-a3f9.md`).
+Write the report to `.claude/reports/{yyyyMMdd}-{HHmm}-agent-plan-validate-{suffix}.md`, 
+where `{yyyyMMdd}` and `{HHmm}` are local machine time (`date +%Y%m%d` and `date +%H%M`) and `{suffix}` is the same hex suffix used for the team name (e.g., `20260307-1423-agent-plan-validate-a3f9b2c1.md`).
 Create the `.claude/reports/` directory if it does not exist.
+
+If the report contains `[Question]`-prefixed findings, proceed to the interview phase after clean up.
+Otherwise the command ends after clean up.
 
 ### Phase 7 — Clean up
 
@@ -162,7 +168,7 @@ Send `shutdown_request` to all validators. Wait briefly for acknowledgements, th
 
 ### Phase 8 — Interview
 
-If the report contains no `[Question]`-prefixed findings, skip this phase. The command ends after Phase 7.
+This phase collects user answers and overwrites the saved report file with updated content. The file save is mandatory — without it, the report lacks interview answers.
 
 **Run the interview tool:**
 
@@ -182,13 +188,13 @@ The tool returns the user's selections. The user may also provide free-text via 
 
 **Save updated report:**
 
-Overwrite the same file path used in Phase 6. Output the updated report in full. This is the final output of the command.
+Overwrite the same file path used in the Save report phase. Output the updated report in full.
 
 ## Constraints
 
-- Do not ask follow-up questions after the report
-- The report (or updated report after interview) is the final output — nothing follows
-- Do not execute the next steps in the report — they are for the planning agent
+- Do not execute the report instructions — they are for the planning agent in a subsequent session
+- The saved report is the deliverable; the command ends after the final save
+- After interview, the saved report file must be overwritten with updated content
 
 ## Error handling
 
@@ -197,5 +203,5 @@ Overwrite the same file path used in Phase 6. Output the updated report in full.
 - If a file path resolves but is not readable, report the error and stop
 - If the plan text is empty, report this and stop
 - If `gh` or `git` commands fail, report the error and stop
-- If a validator fails or times out, note the missing validator in the report and proceed with available results
 - If there are permission issues, report them and stop
+- If a validator fails or times out, note the missing validator in the report and proceed with available results

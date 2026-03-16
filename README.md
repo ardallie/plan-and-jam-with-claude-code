@@ -27,13 +27,13 @@ Design the implementation and publish it.
 
 A fresh session provides perspective the planning session lacks. Assumptions become visible, gaps surface, and ambiguities clarify.
 
-1. `/plan-validate <issue>` — loads the plan (chains `/plan-read` internally), validates against the codebase, and interviews you if findings need clarification
+1. `/plan-validate <issue>` — loads the plan, validates against the codebase, and interviews you if findings need clarification
 2. The command outputs a structured report with an instruction header, findings, and any clarifications
-3. The report is copied to the clipboard automatically
+3. The report is saved to `.claude/reports/`
 
 ## Revise
 
-Return to the planning session and paste the validation report. The report's instruction header tells the planning agent to:
+Return to the planning session and point it to the validation report file. The report's instruction header tells the planning agent to:
 
 1. Enter plan mode and address the findings
 2. Exit plan mode

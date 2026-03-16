@@ -5,11 +5,11 @@
 - `/agent-revisor` — revise tests and auto-discovered documentation (from manifest and CLAUDE.md files)
 - `/agent-revisor file1.md file2.md` — revise tests and the specified documentation files
 - `/agent-revisor ["file1.md", "file2.md"]` — JSON array format for documentation files
-- Text after the last valid file path (or after the JSON array) is passed to both agents as additional instructions
+- Text after the last valid file path (or after the JSON array) is passed to all agents as additional instructions
 
 ## Context
 
-Use after implementation is complete and before PR creation. Spawns a two-agent team to revise unit tests and documentation in parallel. Agents remain alive after reporting so the user can iterate.
+Use after implementation is complete and before PR creation. Spawns a three-agent team to revise unit tests and documentation in parallel. Agents remain alive after reporting so the user can iterate.
 
 ## Task
 
@@ -52,20 +52,20 @@ Assemble the following for the agent prompts:
 - Full diff (`git diff <default>...HEAD`)
 - Commit messages (`git log -10 <default>..HEAD --oneline`)
 - Documentation file list (for documentation-revisor only)
-- Additional instructions from Phase 1 (forwarded to both agents, if present)
+- Additional instructions from argument parsing (forwarded to all agents, if present)
 
 **Line budget**: Apply a 10,000-line cap to the diff. If the diff exceeds 10,000 lines, pause and ask the user whether to continue with the first 10,000 lines or stop. Agents process files individually (reading and editing one at a time), so individual file reads by agents are not counted against the budget — only the diff context passed in the initial prompt is capped.
 
-**Edge case — no documentation files**: If the merged documentation file list is empty (no arguments, no manifest, no CLAUDE.md files found), skip documentation-revisor. Report: "No documentation files to revise." Spawn unit-test-revisor only.
+**Edge case — no documentation files**: If the merged documentation file list is empty (no arguments, no manifest, no CLAUDE.md files found), skip documentation-revisor. Report: "No documentation files to revise." Spawn unit-test-revisor and a11y-revisor only (a11y-revisor subject to its own `.tsx` precondition below).
 
 **Edge case — nothing to revise**: If documentation files are empty AND all touched files have non-testable extensions (e.g. `.md`, `.json`, `.yaml`, `.lock`, `.svg`, `.png` — configuration files, static assets, and markup with no executable logic), report: "Nothing to revise — no testable source files and no documentation files." and stop without spawning the team.
 
 ### Phase 3 — Create revision team
 
-`TeamCreate` with unique name (e.g., `revisor-a3f9`). Spawn via Task tool:
+Generate a random 8-digit hex suffix (e.g., `a3f9b2c1`) using a shell command: `openssl rand -hex 4 2>/dev/null || date +%s | sha256sum | head -c 8`. Create the team via `TeamCreate` with name `agent-revisor-{suffix}`. Spawn via Task tool:
 
 - `subagent_type: "general-purpose"`
-- `model: "sonnet"` for both agents
+- `model: "sonnet"` for all agents
 - Pass team name to each
 
 **unit-test-revisor** receives:
@@ -105,9 +105,22 @@ Assemble the following for the agent prompts:
   4. Do not commit or push code.
   5. Send a summary to the team lead via `SendMessage`: files revised (path + what changed), files skipped (path + reason). Include the change manifest in the summary.
 
+**a11y-revisor** receives (only if touched file list filtered to `*.tsx` is non-empty; otherwise skip and report "No `.tsx` files to review."):
+- Touched file list filtered to `*.tsx` only, full diff, commit messages, plan summary (if available), additional instructions (if any)
+- Instructions:
+  1. Scan each touched `.tsx` file for accessibility issues.
+  2. Check ARIA attributes — verify interactive elements have appropriate roles, labels, and states.
+  3. Check keyboard navigation — verify focusable elements have keyboard handlers, tab order is logical, focus traps exist where needed (modals, drawers).
+  4. Check semantic HTML — verify correct element usage (button vs div with onClick, nav, main, aside, section with headings).
+  5. Check focus management — verify focus moves appropriately on navigation, modal open/close, dynamic content changes.
+  6. Check colour contrast considerations — flag hardcoded colour values without contrast verification, verify text meets WCAG contrast requirements where determinable.
+  7. Edit files to fix issues found. Add missing ARIA attributes, fix keyboard handlers, improve semantic markup. After edits, verify TypeScript compilation — check `package.json` scripts for a type-check command (e.g., `ts:quick`, `typecheck`, `type-check`) and run it; if none exists, fall back to `npx tsc --noEmit`. If your changes introduce type errors, revert the offending edit and record it under "files skipped" in the summary.
+  8. Do not commit or push code.
+  9. Send summary to team lead via `SendMessage`: files revised (path + what changed), files skipped (path + reason).
+
 ### Phase 4 — Collect results
 
-Wait for both agents (or one, if documentation-revisor was skipped) to send their summaries via `SendMessage`. Messages are delivered automatically when each agent finishes its turn. If an agent goes idle after sending its summary, that is normal — the summary has been received. If an agent fails or does not respond within the platform's default task timeout, proceed with available results and note the missing agent in the output.
+Wait for all agents (unit-test-revisor, a11y-revisor, and documentation-revisor if not skipped) to send their summaries via `SendMessage`. Messages are delivered automatically when each agent finishes its turn. If an agent goes idle after sending its summary, that is normal — the summary has been received. If an agent fails or does not respond within the platform's default task timeout, proceed with available results and note the missing agent in the output.
 
 ### Phase 5 — Output summary
 
@@ -121,6 +134,10 @@ Consolidate agent summaries into brief output. No report file saved. No clipboar
 ## Unit tests
 
 [summary from unit-test-revisor]
+
+## Accessibility
+
+[summary from a11y-revisor, or "Skipped — no `.tsx` files to review"]
 
 ## Documentation
 
