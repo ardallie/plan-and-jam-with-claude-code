@@ -11,11 +11,11 @@ Run this after the plan has been created (`/plan-create`) and optionally validat
 
 ## Task
 
-1. Load the plan by invoking `/plan-read` via the Skill tool (use `skill: "plan-read"` and pass the issue number as `args` if provided).
+1. Load the plan by running `/plan-read` (pass the issue number if provided as argument).
 2. Parse the plan into discrete, ordered work items.
 3. Implement each work item sequentially:
    - Make the changes.
-   - If the repository has a build or test step, verify the changes compile and pass relevant tests.
+   - Verify the changes compile and pass relevant tests.
    - Report progress before moving to the next item.
 4. Summarise what was implemented and note any items skipped or deferred.
 

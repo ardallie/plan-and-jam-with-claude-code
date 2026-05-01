@@ -155,9 +155,9 @@ note these separately.]
 
 ### Phase 6 — Save report
 
-Write the report to `.claude/reports/{yyyyMMdd}-{HHmm}-agent-plan-validate-{suffix}.md`, 
+Write the report to `.agents/reports/{yyyyMMdd}-{HHmm}-agent-plan-validate-{suffix}.md`, 
 where `{yyyyMMdd}` and `{HHmm}` are local machine time (`date +%Y%m%d` and `date +%H%M`) and `{suffix}` is the same hex suffix used for the team name (e.g., `20260307-1423-agent-plan-validate-a3f9b2c1.md`).
-Create the `.claude/reports/` directory if it does not exist.
+Create the `.agents/reports/` directory if it does not exist.
 
 If the report contains `[Question]`-prefixed findings, proceed to the interview phase after clean up.
 Otherwise the command ends after clean up.
@@ -182,7 +182,7 @@ The tool returns the user's selections. The user may also provide free-text via 
 
 **Update the report** — for each answered question:
 
-- **Findings**: prepend `[Resolved]` to the description and append the user's answer on a new line prefixed with `Answer:`. Do not delete the finding — it serves as audit trail.
+- **Findings**: replace the `[Question]` prefix with `[Resolved]` in the description and append the user's answer on a new line prefixed with `Answer:`. Do not delete the finding — it serves as audit trail.
 - **Clarifications section**: add the answered question and the user's response. If the section did not exist, create it.
 - Skipped questions: no changes.
 

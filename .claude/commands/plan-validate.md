@@ -67,25 +67,7 @@ Do not proceed with implementation until the user explicitly approves.
 
 ## Findings
 
-### Clarity [omit if empty]
-
-[findings — each with description and file:line references]
-
-### Accuracy [omit if empty]
-
-[findings — each with what was claimed, what was found, and file:line evidence]
-
-### Completeness [omit if empty]
-
-[findings — each with description and file:line references]
-
-### Feasibility [omit if empty]
-
-[findings — each with description and file:line references]
-
-### Approved without changes [omit if empty]
-
-[areas reviewed and found correct — stating what was checked and why it needs no changes]
+[Validation results organised by category]
 
 ## Clarifications [omit if no interview]
 
@@ -95,9 +77,9 @@ Do not proceed with implementation until the user explicitly approves.
 ### Phase 4 — Save and output report
 
 Generate an 8-digit hex suffix (`openssl rand -hex 4 2>/dev/null || date +%s | sha256sum | head -c 8`). Write the report to
-`.claude/reports/{yyyyMMdd}-{HHmm}-plan-validate-{suffix}.md`, where `{yyyyMMdd}` and
+`.agents/reports/{yyyyMMdd}-{HHmm}-plan-validate-{suffix}.md`, where `{yyyyMMdd}` and
 `{HHmm}` are local machine time (`date +%Y%m%d` and `date +%H%M`).
-Create the `.claude/reports/` directory if it does not exist.
+Create the `.agents/reports/` directory if it does not exist.
 
 Output the report in full.
 
@@ -120,7 +102,7 @@ The tool returns the user's selections. The user may also provide free-text via 
 
 **Update the report** — for each answered question:
 
-- **Findings**: prepend `[Resolved]` to the description and append the user's answer on a new line prefixed with `Answer:`. Do not delete the finding — it serves as audit trail.
+- **Findings**: replace the `[Question]` prefix with `[Resolved]` in the description and append the user's answer on a new line prefixed with `Answer:`. Do not delete the finding — it serves as audit trail.
 - **Clarifications section**: add the answered question and the user's response. If the section did not exist, create it.
 - Skipped questions: no changes.
 

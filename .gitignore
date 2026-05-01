@@ -28,5 +28,5 @@ logs
 # Claude local settings
 settings.local.json
 
-# Claude generated reports
-.claude/reports/
+# Claude-generated content
+.agents/

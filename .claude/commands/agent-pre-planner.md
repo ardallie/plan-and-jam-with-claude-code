@@ -135,10 +135,10 @@ Source: [conversation context | file paths | issue #N]
 
 ## Analysts
 
-1. [name] — [specialisation]
-2. [name] — [specialisation]
-3. [name] — [specialisation]
-4. [name] — [sceptic description]
+1. [name] -- [specialisation]
+2. [name] -- [specialisation]
+3. [name] -- [specialisation]
+4. [name] -- [sceptic description]
 
 ## Enhanced brief
 
@@ -150,7 +150,7 @@ The result is the user's brief as it would read with full knowledge of the codeb
 
 ### Open questions [omit if empty]
 
-[Questions that require user input before planning — grouped by priority (blocking first,
+[Questions that require user input before planning -- grouped by priority (blocking first,
 then deferrable). One per line. Full context in § Question below.]
 
 ### Workload split
@@ -163,40 +163,40 @@ When not splitting, state that a single plan is sufficient.]
 
 ### Correction [omit if empty]
 
-[Numbered findings — each with severity tag, description, what was wrong, what is correct, and file:line evidence]
+[Numbered findings -- each with severity tag, description, what was wrong, what is correct, and file:line evidence]
 
 ### Risk [omit if empty]
 
-[Numbered findings — each with severity tag, description, and file:line references]
+[Numbered findings -- each with severity tag, description, and file:line references]
 
 ### Question [omit if empty]
 
-[Numbered findings — each with priority tag, ambiguities the codebase could not resolve]
+[Numbered findings -- each with priority tag, ambiguities the codebase could not resolve]
 
 ### Insight [omit if empty]
 
-[Numbered findings — each with severity tag, description, and file:line references]
+[Numbered findings -- each with severity tag, description, and file:line references]
 
 ### Opportunity [omit if empty]
 
-[Numbered findings — each with severity tag, description, and file:line references]
+[Numbered findings -- each with severity tag, description, and file:line references]
 
 ### Confirmed [omit if empty]
 
-[Numbered findings — each with what was verified and file:line evidence]
+[Numbered findings -- each with what was verified and file:line evidence]
 
 ## Context files
 
-[Single deduplicated numbered list of all files read during analysis — by the
+[Single deduplicated numbered list of all files read during analysis -- by the
 parent agent during exploration and by analysts. No grouping by source, no analyst
-attribution. Omit files listed in the brief but not found or not readable —
+attribution. Omit files listed in the brief but not found or not readable --
 note these separately.]
 ```
 
 ### Phase 6 — Save report
 
-Write the report to `.claude/reports/{yyyyMMdd}-{HHmm}-agent-pre-planner-{suffix}.md`, where `{yyyyMMdd}` and `{HHmm}` are local machine time (`date +%Y%m%d` and `date +%H%M`) and `{suffix}` is the same hex suffix used for the team name (e.g., `20260216-0945-agent-pre-planner-a3f9b2c1.md`).
-Create the `.claude/reports/` directory if it does not exist.
+Write the report to `.agents/reports/{yyyyMMdd}-{HHmm}-agent-pre-planner-{suffix}.md`, where `{yyyyMMdd}` and `{HHmm}` are local machine time (`date +%Y%m%d` and `date +%H%M`) and `{suffix}` is the same hex suffix used for the team name (e.g., `20260216-0945-agent-pre-planner-a3f9b2c1.md`).
+Create the `.agents/reports/` directory if it does not exist.
 
 If the report contains an `### Open questions` subsection with questions, proceed to the interview phase after clean up. Otherwise the command ends after clean up.
 
