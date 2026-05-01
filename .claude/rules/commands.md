@@ -34,7 +34,9 @@ Commands live in `.claude/commands/`. Most commands execute directly. Commands t
 
 **/agent-pre-planner** — runs a pre-plan analysis: identifies confirmed findings, risks, and open questions before implementation begins
 
-**/agent-revisor** — revises unit tests, accessibility, and documentation on the current branch
+## Utilities
+
+**/run-interview** — presents open questions to the user interactively via the `AskUserQuestion` tool
 
 ## Pull requests
 

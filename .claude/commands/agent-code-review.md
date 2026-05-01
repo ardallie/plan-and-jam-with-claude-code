@@ -65,16 +65,17 @@ If the diff fits within budget, estimate total file sizes from `git diff --stat`
 
 **Budget warning** — use `AskUserQuestion` before proceeding. Present the line count and offer:
 
-1. Continue with the first 15,000 lines (truncated review)
-2. Stop and narrow the scope
+1. Continue with diff only (skip full file reads) — available only when the diff alone fits within budget
+2. Continue with the first 15,000 lines (truncated review)
+3. Stop and narrow the scope
 
 Include source-specific advice: for directory sources, suggest narrowing the directory path; for commit sources, suggest reviewing a smaller commit; for diff sources, suggest isolating generated files in a separate commit or reviewing a single commit.
 
-If the user chooses to stop, end the task. If the user chooses to continue, keep the first 15,000 lines, discard the rest, and note the truncation for reviewers.
+If the user chooses to stop, end the task. If the user chooses diff only, proceed with the diff and note for reviewers that full file context was not included. If the user chooses to continue truncated, keep the first 15,000 lines, discard the rest, and note the truncation for reviewers.
 
 ### Phase 3 — Create review team
 
-Generate a random 8-digit hex suffix (e.g., `a3f9b2c1`) using a shell command: `openssl rand -hex 4 2>/dev/null || date +%s | sha256sum | head -c 8`. Create the team via `TeamCreate` with name `agent-code-review-{suffix}`. Spawn four reviewers via the Task tool (`subagent_type: "general-purpose"`, `model: "sonnet"`), passing the team name. Each reviewer receives the available source material (diff or file contents), file list, commit context where applicable, and any additional instructions.
+Generate a random 8-digit hex suffix (e.g., `a3f9b2c1`) using a shell command: `openssl rand -hex 4 2>/dev/null || date +%s | sha256sum | head -c 8 2>/dev/null || date +%s | shasum -a 256 | head -c 8`. Create the team via `TeamCreate` with name `agent-code-review-{suffix}`. Spawn four reviewers via the Task tool (`subagent_type: "general-purpose"`, `model: "sonnet"`), passing the team name. Each reviewer receives the available source material (diff or file contents), file list, commit context where applicable, and any additional instructions.
 
 Three reviewers receive specialisations chosen by the system based on the code under review. The fourth is the **sceptic** — it challenges assumptions, questions necessity, identifies what the other reviewers missed, and suggests simpler alternatives.
 
@@ -96,7 +97,7 @@ Consolidate all reviewer findings into a single severity-grouped report. Apply t
 - Deduplicate: if multiple reviewers flagged the same issue, merge into one finding. When merging, use the highest severity.
 - Preserve `[Question]` prefixes during deduplication and consolidation. A merged finding retains the prefix if any constituent finding had it.
 - No per-reviewer attribution. The developer does not need to know which agent found what.
-- Omit sections that have no findings, including "Approved without changes".
+- Omit sections that have no findings.
 - No findings summary or recommendation line.
 
 Output the report:
@@ -106,7 +107,7 @@ Output the report:
 
 ## Summary
 
-Title: {concise title suitable for GitHub}
+Title: [concise title suitable for GitHub]
 Source: [current branch | pr #N | branch name | commit sha | directory path]
 
 [1-2 paragraphs: what the changes do, which areas of the codebase they affect, and key design decisions]
@@ -149,13 +150,12 @@ Source: [current branch | pr #N | branch name | commit sha | directory path]
 
 ### Phase 6 — Save report
 
-Write the report to `.claude/reports/{yyyyMMdd}-{HHmm}-agent-code-review-{suffix}.md`,
+Write the report to `.agents/reports/{yyyyMMdd}-{HHmm}-agent-code-review-{suffix}.md`,
 where `{yyyyMMdd}` and `{HHmm}` are local machine time (`date +%Y%m%d` and `date +%H%M`)
 and `{suffix}` is the same hex suffix used for the team name.
-Create the `.claude/reports/` directory if it does not exist.
+Create the `.agents/reports/` directory if it does not exist.
 
-If the report contains `[Question]`-prefixed findings, proceed to the interview phase after clean up.
-Otherwise the command ends after clean up.
+Proceed to clean up. If the report contains `[Question]`-prefixed findings, the interview follows after clean up; otherwise the command ends after clean up.
 
 ### Phase 7 — Clean up
 
@@ -175,11 +175,11 @@ If there are more questions than the tool supports per call, batch them across m
 
 **Collect answers:**
 
-The tool returns the user's selections. The user may also provide free-text via the built-in "Other" option. If the user declines to answer a question, leave it unresolved. If all questions are unresolved, end the interview.
+The tool returns the user's selections. The user may also provide free-text via the built-in "Other" option. If the user declines to answer a question, leave it unresolved. If all questions are unresolved or the user cancels the interaction, end the interview — the report remains as saved in Phase 6.
 
 **Update the report** — for each answered question:
 
-- **Findings**: prepend `[Resolved]` to the description and append the user's answer on a new line prefixed with `Answer:`. Do not delete the finding — it serves as audit trail.
+- **Findings**: replace the `[Question]` prefix with `[Resolved]` in the description and append the user's answer on a new line prefixed with `Answer:`. Do not delete the finding — it serves as audit trail.
 - **Clarifications section**: add the answered question and the user's response. If the section did not exist, create it.
 - Skipped questions: no changes.
 
